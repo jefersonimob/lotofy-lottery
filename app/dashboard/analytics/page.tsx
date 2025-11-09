@@ -37,15 +37,11 @@ export default async function AnalyticsPage() {
         <DashboardHeader user={data.user} profile={null} />
 
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-          <div className="space-y-6 sm:space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-              <AdvancedAnalyticsDashboard
-                recentResults={recentResults || []}
-                userPredictions={userPredictions || []}
-                allResults={allResults || []}
-              />
-            </div>
-          </div>
+          <AdvancedAnalyticsDashboard
+            recentResults={recentResults || []}
+            userPredictions={userPredictions || []}
+            allResults={allResults || []}
+          />
         </main>
       </div>
     </MobileLayout>

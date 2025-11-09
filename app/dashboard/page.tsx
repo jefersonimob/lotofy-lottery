@@ -19,6 +19,11 @@ export default async function DashboardPage() {
   // Get user profile
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
 
+  // Redirect admin users to admin dashboard
+  if (profile?.role === "admin") {
+    redirect("/admin")
+  }
+
   return (
     <MobileLayout>
       <div className="min-h-screen bg-background">
