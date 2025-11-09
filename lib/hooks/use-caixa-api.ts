@@ -38,6 +38,39 @@ export function useCaixaApi() {
     }
   }
 
+  const updateHistoricalResults = async (maxContest?: number): Promise<{
+    success: boolean
+    message: string
+    inserted?: number
+    errors?: string[]
+  }> => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const url = maxContest 
+        ? `/api/update-historical-results?maxContest=${maxContest}`
+        : '/api/update-historical-results'
+        
+      const response = await fetch(url, {
+        method: 'POST'
+      })
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.message || 'Falha na atualização histórica')
+      }
+
+      return data
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar resultados históricos'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getLatestResult = async (): Promise<ProcessedLotofacilResult> => {
     setLoading(true)
     setError(null)
@@ -60,33 +93,11 @@ export function useCaixaApi() {
     }
   }
 
-  const getNextContest = async (): Promise<NextContestInfo> => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch('/api/next-contest')
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.message || 'Falha ao buscar próximo concurso')
-      }
-
-      return data.data as NextContestInfo
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar próximo concurso'
-      setError(errorMessage)
-      throw new Error(errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return {
-    syncLatestResult,
+  return { 
+    loading, 
+    error, 
+    syncLatestResult, 
     getLatestResult,
-    getNextContest,
-    loading,
-    error
+    updateHistoricalResults
   }
 }

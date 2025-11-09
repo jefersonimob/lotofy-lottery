@@ -1,5 +1,7 @@
 // lib/services/caixa-api.ts
 import type { SupabaseClient } from "@supabase/supabase-js"
+import axios from 'axios';
+import { Agent } from 'http';
 
 export interface CaixaLotofacilResult {
   loteria: string
@@ -52,6 +54,11 @@ export interface ProcessedLotofacilResult {
 
 const CAIXA_API_BASE = 'https://loteriascaixa-api.herokuapp.com/api'
 
+// Tipos para a nova implementação
+type Format = string[];
+type Raffle = Record<number, Format>;
+type Result = Record<number, Format> | null;
+
 export class CaixaApiService {
   /**
    * Busca o último resultado da Lotofácil
@@ -100,6 +107,108 @@ export class CaixaApiService {
     } catch (error) {
       console.error(`Erro ao buscar concurso ${contestNumber}:`, error)
       return null
+    }
+  }
+
+  /**
+   * Busca resultados históricos em lote
+   */
+  static async getHistoricalResults(startContest: number, endContest: number): Promise<ProcessedLotofacilResult[]> {
+    const results: ProcessedLotofacilResult[] = [];
+    
+    for (let contest = startContest; contest <= endContest; contest++) {
+      try {
+        const result = await this.getResultByContest(contest);
+        if (result) {
+          results.push(result);
+        }
+        // Adicionar um pequeno delay para não sobrecarregar a API
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`Erro ao buscar concurso ${contest}:`, error);
+        // Continuar com os próximos concursos mesmo que um falhe
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Atualiza todos os resultados históricos faltando no banco de dados
+   */
+  static async updateAllHistoricalResults(supabase: SupabaseClient, maxContest?: number): Promise<{
+    success: boolean
+    inserted: number
+    errors: string[]
+    message: string
+  }> {
+    const errors: string[] = [];
+    let inserted = 0;
+    
+    try {
+      // Obter o maior número de concurso já salvo no banco
+      const { data: latestDb, error: dbError } = await supabase
+        .from('lottery_results')
+        .select('contest_number')
+        .order('contest_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (dbError) {
+        throw new Error(`Erro ao buscar último concurso do banco: ${dbError.message}`);
+      }
+
+      // Determinar o primeiro concurso a buscar (1 é o primeiro concurso da Lotofácil)
+      const startContest = latestDb ? latestDb.contest_number + 1 : 1;
+      
+      // Se não foi fornecido um limite, buscar até um número razoável
+      const endContest = maxContest || 3600; // Valor estimado para cobrir todos os concursos futuros
+
+      console.log(`Buscando resultados históricos de ${startContest} a ${endContest}`);
+
+      // Buscar resultados em lotes
+      const batchSize = 10;
+      for (let contest = startContest; contest <= endContest; contest += batchSize) {
+        const batchEnd = Math.min(contest + batchSize - 1, endContest);
+        console.log(`Processando lotes de ${contest} a ${batchEnd}`);
+        
+        const results = await this.getHistoricalResults(contest, batchEnd);
+        
+        if (results.length > 0) {
+          // Inserir resultados no banco
+          const { error: insertError } = await supabase
+            .from('lottery_results')
+            .upsert(results.map(result => ({
+              contest_number: result.contest_number,
+              draw_date: result.draw_date,
+              numbers: result.numbers,
+            })), { onConflict: 'contest_number' });
+
+          if (insertError) {
+            errors.push(`Erro ao inserir resultados de ${contest} a ${batchEnd}: ${insertError.message}`);
+          } else {
+            inserted += results.length;
+            console.log(`Inseridos ${results.length} resultados de ${contest} a ${batchEnd}`);
+          }
+        }
+        
+        // Pequeno delay entre lotes para não sobrecarregar a API
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      return {
+        success: true,
+        inserted,
+        errors,
+        message: `Atualização concluída. ${inserted} resultados inseridos. ${errors.length} erros ocorridos.`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        inserted: 0,
+        errors: [error instanceof Error ? error.message : String(error)],
+        message: `Erro ao atualizar resultados históricos: ${error instanceof Error ? error.message : String(error)}`
+      };
     }
   }
 

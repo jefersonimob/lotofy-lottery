@@ -24,6 +24,7 @@ export function AdminHeader() {
   const navigationItems = [
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/results", label: "Resultados" },
+    { href: "/admin/all-games", label: "Jogos Possíveis" },
     { href: "/admin/users", label: "Usuários" },
     { href: "/admin/analytics", label: "Analytics" },
   ]

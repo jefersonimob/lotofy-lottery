@@ -9,27 +9,26 @@ import { ResultsList } from "./results-list"
 import { Upload, Plus, List } from "lucide-react"
 import type { LotteryResult } from "@/lib/types"
 import { useToast } from "@/components/ui/use-toast"
+import { useCaixaApi } from "@/lib/hooks/use-caixa-api"
 
-interface ResultsManagerProps {
-  initialResults: LotteryResult[]
-}
-
-interface SeedSummary {
-  total_rows: number
-  inserted: number
-  parse_errors: number
-  upsert_errors: number
-}
-
-export function ResultsManager({ initialResults }: ResultsManagerProps) {
-  const [results, setResults] = useState<LotteryResult[]>(initialResults)
+export function ResultsManager() {
+  const [results, setResults] = useState<LotteryResult[]>([])
   const [excelImportLoading, setExcelImportLoading] = useState(false)
   const [excelImportSummary, setExcelImportSummary] = useState<{ total: number; imported: number; errors: number } | null>(null)
   const [excelImportErrors, setExcelImportErrors] = useState<string[]>([])
   const [seedLoading, setSeedLoading] = useState(false)
   const [seedSummary, setSeedSummary] = useState<SeedSummary | null>(null)
   const [seedErrors, setSeedErrors] = useState<string[]>([])
+  const [historicalUpdateLoading, setHistoricalUpdateLoading] = useState(false)
+  const [historicalUpdateResult, setHistoricalUpdateResult] = useState<{
+    inserted: number
+    errors: string[]
+    message: string
+  } | null>(null)
+  const [historicalUpdateErrors, setHistoricalUpdateErrors] = useState<string[]>([])
+  
   const { toast } = useToast()
+  const { updateHistoricalResults } = useCaixaApi()
 
   const handleResultAdded = (newResult: LotteryResult) => {
     setResults((prev) => [newResult, ...prev])
@@ -96,6 +95,48 @@ export function ResultsManager({ initialResults }: ResultsManagerProps) {
       toast({ title: "Erro ao popular", description: msg, variant: "destructive" })
     } finally {
       setSeedLoading(false)
+    }
+  }
+
+  const handleUpdateHistoricalResults = async () => {
+    try {
+      setHistoricalUpdateLoading(true)
+      setHistoricalUpdateErrors([])
+      setHistoricalUpdateResult(null)
+      
+      const result = await updateHistoricalResults()
+      
+      if (result.success) {
+        setHistoricalUpdateResult({
+          inserted: result.inserted || 0,
+          errors: result.errors || [],
+          message: result.message
+        })
+        toast({ 
+          title: "Atualização concluída", 
+          description: result.message
+        })
+        
+        // Atualizar lista de resultados após a atualização
+        const listRes = await fetch("/api/lottery-results?limit=20")
+        const listJson = await listRes.json()
+        const fresh = (listJson?.data || []) as LotteryResult[]
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          setResults(fresh)
+        }
+      } else {
+        throw new Error(result.message)
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setHistoricalUpdateErrors([msg])
+      toast({ 
+        title: "Erro na atualização", 
+        description: msg, 
+        variant: "destructive" 
+      })
+    } finally {
+      setHistoricalUpdateLoading(false)
     }
   }
 
@@ -197,6 +238,41 @@ export function ResultsManager({ initialResults }: ResultsManagerProps) {
               {seedErrors.length > 0 && (
                 <div className="text-sm text-red-500">
                   {seedErrors.map((e, i) => (
+                    <div key={i}>{e}</div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Atualizar Resultados Históricos</CardTitle>
+              <CardDescription>
+                Busca e insere todos os resultados históricos faltando da API da Caixa
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <button
+                className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-white disabled:bg-muted"
+                onClick={handleUpdateHistoricalResults}
+                disabled={historicalUpdateLoading}
+              >
+                {historicalUpdateLoading ? "Atualizando..." : "Atualizar Histórico"}
+              </button>
+              {historicalUpdateResult && (
+                <div className="text-sm text-muted-foreground">
+                  <div>
+                    Inseridos: {historicalUpdateResult.inserted} | Erros: {historicalUpdateResult.errors.length}
+                  </div>
+                  <div className="mt-1">
+                    {historicalUpdateResult.message}
+                  </div>
+                </div>
+              )}
+              {historicalUpdateErrors.length > 0 && (
+                <div className="text-sm text-red-500">
+                  {historicalUpdateErrors.map((e, i) => (
                     <div key={i}>{e}</div>
                   ))}
                 </div>
