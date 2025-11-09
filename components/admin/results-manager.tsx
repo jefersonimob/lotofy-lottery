@@ -15,6 +15,13 @@ interface ResultsManagerProps {
   initialResults?: LotteryResult[]
 }
 
+interface SeedSummary {
+  inserted: number
+  total_rows: number
+  parse_errors: number
+  upsert_errors: number
+}
+
 export function ResultsManager({ initialResults = [] }: ResultsManagerProps) {
   const [results, setResults] = useState<LotteryResult[]>(initialResults)
   const [excelImportLoading, setExcelImportLoading] = useState(false)

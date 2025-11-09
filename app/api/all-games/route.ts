@@ -83,13 +83,13 @@ export async function GET(request: Request) {
     let filteredData = data || []
 
     if (mustInclude && mustInclude.length > 0) {
-      filteredData = filteredData.filter(game =>
+      filteredData = filteredData.filter((game: { numbers: number[] }) =>
         mustInclude.every(num => game.numbers.includes(num))
       )
     }
 
     if (mustExclude && mustExclude.length > 0) {
-      filteredData = filteredData.filter(game =>
+      filteredData = filteredData.filter((game: { numbers: number[] }) =>
         !mustExclude.some(num => game.numbers.includes(num))
       )
     }
