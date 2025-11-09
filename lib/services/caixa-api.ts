@@ -1,7 +1,5 @@
 // lib/services/caixa-api.ts
 import type { SupabaseClient } from "@supabase/supabase-js"
-import axios from 'axios';
-import { Agent } from 'http';
 
 export interface CaixaLotofacilResult {
   loteria: string
@@ -53,11 +51,6 @@ export interface ProcessedLotofacilResult {
 }
 
 const CAIXA_API_BASE = 'https://loteriascaixa-api.herokuapp.com/api'
-
-// Tipos para a nova implementação
-type Format = string[];
-type Raffle = Record<number, Format>;
-type Result = Record<number, Format> | null;
 
 export class CaixaApiService {
   /**

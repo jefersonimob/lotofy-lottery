@@ -11,8 +11,12 @@ import type { LotteryResult } from "@/lib/types"
 import { useToast } from "@/components/ui/use-toast"
 import { useCaixaApi } from "@/lib/hooks/use-caixa-api"
 
-export function ResultsManager() {
-  const [results, setResults] = useState<LotteryResult[]>([])
+interface ResultsManagerProps {
+  initialResults?: LotteryResult[]
+}
+
+export function ResultsManager({ initialResults = [] }: ResultsManagerProps) {
+  const [results, setResults] = useState<LotteryResult[]>(initialResults)
   const [excelImportLoading, setExcelImportLoading] = useState(false)
   const [excelImportSummary, setExcelImportSummary] = useState<{ total: number; imported: number; errors: number } | null>(null)
   const [excelImportErrors, setExcelImportErrors] = useState<string[]>([])

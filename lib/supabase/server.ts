@@ -1,5 +1,5 @@
 // lib/supabase/server.ts
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient as createSupabaseServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export const createClient = () => {
@@ -25,10 +25,10 @@ export const createClient = () => {
           async delete() { return { data: null, error: new Error('Supabase não configurado.') } },
         }
       }
-    } as ReturnType<typeof createServerClient>
+    } as ReturnType<typeof createSupabaseServerClient>
   }
 
-  return createServerClient(
+  return createSupabaseServerClient(
     url,
     anonKey,
     {
@@ -58,3 +58,9 @@ export const createClient = () => {
     }
   )
 }
+
+// Export createServerClient as an alias for compatibility with API routes
+export const createServerClient = createClient
+
+// Default export for backward compatibility
+export default createClient

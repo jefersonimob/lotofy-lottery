@@ -35,12 +35,6 @@ export async function GET() {
       )
     }
 
-    // Distribuição de odd/even
-    const { data: oddEvenDist } = await supabase
-      .from('all_possible_games')
-      .select('odd_count, even_count')
-      .limit(1)
-
     return NextResponse.json({
       total_games: count || 0,
       expected_total: 3268760,

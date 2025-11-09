@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import type { ProcessedLotofacilResult } from "@/lib/services/caixa-api"
-import type { NextContestInfo } from "@/lib/types"
 
 export function useCaixaApi() {
   const [loading, setLoading] = useState(false)
