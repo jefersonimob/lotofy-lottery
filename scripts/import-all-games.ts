@@ -85,10 +85,27 @@ function calculateGameMetadata(numbers: number[]) {
   }
 }
 
+interface GameRecord {
+  numbers: number[]
+  numbers_str: string
+  sum_numbers: number
+  odd_count: number
+  even_count: number
+  low_count: number
+  high_count: number
+  range_01_05: number
+  range_06_10: number
+  range_11_15: number
+  range_16_20: number
+  range_21_25: number
+  has_sequence: boolean
+  max_sequence_length: number
+}
+
 /**
  * Processa uma linha do CSV
  */
-function parseGameLine(line: string): any {
+function parseGameLine(line: string): GameRecord | null {
   // Remove aspas e split por hífen
   const cleanLine = line.replace(/"/g, '').trim()
   if (!cleanLine) return null
@@ -122,7 +139,7 @@ function parseGameLine(line: string): any {
 /**
  * Insere batch no banco
  */
-async function insertBatch(batch: any[], batchNumber: number): Promise<boolean> {
+async function insertBatch(batch: GameRecord[], batchNumber: number): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('all_possible_games')
@@ -148,7 +165,7 @@ async function importAllGames() {
   console.log(`📁 Arquivo: ${ZIP_PATH}`)
   console.log(`📦 Batch size: ${BATCH_SIZE} jogos\n`)
 
-  let batch: any[] = []
+  let batch: GameRecord[] = []
   let totalProcessed = 0
   let totalInserted = 0
   let batchNumber = 0
