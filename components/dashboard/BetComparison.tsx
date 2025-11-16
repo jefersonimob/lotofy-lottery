@@ -5,6 +5,7 @@ import { useBetComparison } from "@/lib/hooks/use-bet-comparison"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, TrendingUp, Award } from "lucide-react"
@@ -55,9 +56,9 @@ export default function BetComparison() {
             <Label htmlFor="bets">
               Apostas (uma por linha, números separados por vírgula ou espaço)
             </Label>
-            <textarea
+            <Textarea
               id="bets"
-              className="w-full min-h-[120px] p-3 border rounded-md"
+              className="min-h-[120px]"
               placeholder="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15&#10;3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 1, 2, 4, 6"
               value={betsInput}
               onChange={(e) => setBetsInput(e.target.value)}

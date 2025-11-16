@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import BetAnalysis from "./BetAnalysis"
 import BetComparison from "./BetComparison"
 import ExtendedStatistics from "./ExtendedStatistics"
-import { BarChart3, Search, GitCompare, LayoutDashboard } from "lucide-react"
+import SavedBets from "./SavedBets"
+import { BarChart3, Search, GitCompare, LayoutDashboard, Save } from "lucide-react"
 
 interface DashboardTabsProps {
   overviewContent: React.ReactNode
@@ -13,7 +14,7 @@ interface DashboardTabsProps {
 export function DashboardTabs({ overviewContent }: DashboardTabsProps) {
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 mb-6">
+      <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5 mb-6">
         <TabsTrigger value="overview" className="gap-2">
           <LayoutDashboard className="h-4 w-4" />
           <span className="hidden sm:inline">Visão Geral</span>
@@ -34,6 +35,11 @@ export function DashboardTabs({ overviewContent }: DashboardTabsProps) {
           <span className="hidden sm:inline">Estatísticas</span>
           <span className="sm:hidden">Stats</span>
         </TabsTrigger>
+        <TabsTrigger value="saved" className="gap-2">
+          <Save className="h-4 w-4" />
+          <span className="hidden sm:inline">Salvas</span>
+          <span className="sm:hidden">Salvas</span>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="mt-0">
@@ -50,6 +56,10 @@ export function DashboardTabs({ overviewContent }: DashboardTabsProps) {
 
       <TabsContent value="statistics" className="mt-0">
         <ExtendedStatistics />
+      </TabsContent>
+
+      <TabsContent value="saved" className="mt-0">
+        <SavedBets />
       </TabsContent>
     </Tabs>
   )

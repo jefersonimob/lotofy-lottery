@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useBetAnalysis } from "@/lib/hooks/use-bet-comparison"
+import { useLocalBets } from "@/lib/hooks/use-local-bets"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,11 +20,15 @@ import {
   Flame,
   Snowflake,
   AlertCircle,
+  Save,
+  CheckCircle2,
 } from "lucide-react"
 
 export default function BetAnalysis() {
   const { data, loading, error, analyzeBet } = useBetAnalysis()
+  const { saveBet } = useLocalBets()
   const [betInput, setBetInput] = useState("")
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   const handleAnalyze = async () => {
     try {
@@ -40,6 +45,14 @@ export default function BetAnalysis() {
       await analyzeBet(numbers)
     } catch (err) {
       console.error("Error analyzing bet:", err)
+    }
+  }
+
+  const handleSaveCurrentBet = () => {
+    if (data) {
+      saveBet(data.bet)
+      setSaveMessage("Aposta salva localmente!")
+      setTimeout(() => setSaveMessage(null), 3000)
     }
   }
 
@@ -108,9 +121,22 @@ export default function BetAnalysis() {
 
       {data && (
         <div className="space-y-6">
+          {saveMessage && (
+            <div className="p-3 bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 rounded-md flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-sm">{saveMessage}</span>
+            </div>
+          )}
+
           <Card>
             <CardHeader>
-              <CardTitle>Números Selecionados</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Números Selecionados</CardTitle>
+                <Button variant="outline" size="sm" onClick={handleSaveCurrentBet}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Salvar Aposta
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">

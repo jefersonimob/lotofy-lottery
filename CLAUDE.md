@@ -72,10 +72,11 @@ curl -H "Cookie: sb-access-token=..." http://localhost:3000/api/predictions
   /ui               - Shadcn/Radix base components
   /admin            - Admin-specific components
   /dashboard        - Dashboard feature components
-    /dashboard-tabs.tsx       - Main tabs container
+    /dashboard-tabs.tsx       - Main tabs container (5 tabs)
     /BetAnalysis.tsx          - Detailed bet analysis interface
     /BetComparison.tsx        - Compare bets with history
     /ExtendedStatistics.tsx   - Advanced statistics dashboard
+    /SavedBets.tsx            - Local storage management for bets
   /analytics        - Chart components (Recharts)
 /lib
   /supabase         - Client configurations (server.ts, client.ts, admin.ts)
@@ -83,6 +84,8 @@ curl -H "Cookie: sb-access-token=..." http://localhost:3000/api/predictions
   /hooks            - Custom React hooks
     /use-lottery-data.ts      - Lottery results hooks
     /use-bet-comparison.ts    - Bet analysis hooks (3 hooks)
+    /use-local-storage.ts     - Generic localStorage hook
+    /use-local-bets.ts        - Bet persistence hook
   /utils            - Utility functions
     /lottery-math.ts          - Mathematical functions (18 functions)
 /scripts            - Database utilities (import-all-games.ts)
@@ -290,6 +293,36 @@ const cost = betCost(18, 3.0) // Cost of 18-number bet
 const totalPrice = totalCost(bets, 3.0) // Total cost of multiple bets
 ```
 
+### LocalStorage Hooks
+See [lib/hooks/use-local-storage.ts](lib/hooks/use-local-storage.ts) and [lib/hooks/use-local-bets.ts](lib/hooks/use-local-bets.ts):
+
+```typescript
+// Generic localStorage hook
+const [value, setValue, removeValue] = useLocalStorage('key', initialValue)
+
+// Bet persistence hook
+const {
+  bets,              // All saved bets
+  saveBet,           // Save new bet
+  updateBet,         // Update existing bet
+  deleteBet,         // Delete bet
+  getBet,            // Get bet by ID
+  duplicateBet,      // Duplicate bet
+  clearBets,         // Clear all bets
+  exportBets,        // Export to JSON string
+  importBets,        // Import from JSON
+  downloadBets,      // Download as file
+} = useLocalBets()
+
+// Save a bet
+saveBet([1,2,3,...,15], 'My Bet', 'Optional notes')
+
+// Export/Import
+const json = exportBets()
+const count = importBets(jsonString, false) // false = merge, true = replace
+downloadBets() // Downloads JSON file
+```
+
 ## Common Development Tasks
 
 ### Adding New API Route
@@ -386,11 +419,12 @@ See [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md) for detailed deployment steps.
 
 **Main Pages:**
 - [app/page.tsx](app/page.tsx) - Landing page
-- [app/dashboard/page.tsx](app/dashboard/page.tsx) - User dashboard (4 tabs)
+- [app/dashboard/page.tsx](app/dashboard/page.tsx) - User dashboard (5 tabs)
   - Tab 1: Visão Geral (original dashboard)
-  - Tab 2: Análise (detailed bet analysis)
+  - Tab 2: Análise (detailed bet analysis with save button)
   - Tab 3: Comparar (compare bets with history)
   - Tab 4: Estatísticas (extended statistics)
+  - Tab 5: Salvas (localStorage management, export/import)
 - [app/admin/page.tsx](app/admin/page.tsx) - Admin dashboard
 
 **Configuration:**
