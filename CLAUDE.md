@@ -50,19 +50,41 @@ curl -H "Cookie: sb-access-token=..." http://localhost:3000/api/predictions
 ### Directory Structure
 ```
 /app
-  /api              - API routes (lottery-results, predictions, statistics, all-games, admin)
+  /api              - API routes
+    /lottery-results           - Fetch historical draw data
+    /statistics               - Number frequency statistics
+    /predictions              - User predictions (CRUD)
+    /generate-prediction      - AI-powered prediction generation
+    /all-games                - Query precomputed game combinations
+    /next-contest             - Get next contest info
+    /check-prizes             - Prize checking functionality
+    /sync-latest-result       - Sync latest draw from Caixa API
+    /update-historical-results - Batch update historical data
+    /profile                  - User profile management
+    /admin-health             - Admin system health check
+    /compare-bets             - Compare bets with historical draws
+    /extended-statistics      - Advanced mathematical statistics
+    /bet-analysis             - Detailed bet analysis with probabilities
   /auth             - Login/signup pages (client components)
   /admin            - Admin dashboard (role='admin' required)
-  /dashboard        - User dashboard (authenticated)
+  /dashboard        - User dashboard (authenticated, 4 tabs)
 /components
   /ui               - Shadcn/Radix base components
   /admin            - Admin-specific components
   /dashboard        - Dashboard feature components
+    /dashboard-tabs.tsx       - Main tabs container
+    /BetAnalysis.tsx          - Detailed bet analysis interface
+    /BetComparison.tsx        - Compare bets with history
+    /ExtendedStatistics.tsx   - Advanced statistics dashboard
   /analytics        - Chart components (Recharts)
 /lib
   /supabase         - Client configurations (server.ts, client.ts, admin.ts)
   /services         - External integrations (caixa-api.ts)
   /hooks            - Custom React hooks
+    /use-lottery-data.ts      - Lottery results hooks
+    /use-bet-comparison.ts    - Bet analysis hooks (3 hooks)
+  /utils            - Utility functions
+    /lottery-math.ts          - Mathematical functions (18 functions)
 /scripts            - Database utilities (import-all-games.ts)
 ```
 
@@ -106,7 +128,7 @@ function Component() {
 - `all_possible_games` - All 3,268,760 combinations (sum, odd_count, even_count, has_sequence)
 
 ### Setup & Migrations
-SQL scripts in `/scripts/` directory (numbered 001-008):
+SQL scripts in `/scripts/` directory (numbered 001-009):
 1. Create tables
 2. Enable RLS policies
 3. Create functions
@@ -115,6 +137,7 @@ SQL scripts in `/scripts/` directory (numbered 001-008):
 6. Add admin roles
 7. Update profiles table
 8. Add prize tracking
+9. Create all_possible_games table
 
 Run in order via Supabase SQL Editor (see [ADMIN_SETUP_GUIDE.md](ADMIN_SETUP_GUIDE.md)).
 
@@ -199,20 +222,72 @@ export async function POST() {
 
 ## Custom Hooks Reference
 
+### Lottery Data Hooks
 See [lib/hooks/use-lottery-data.ts](lib/hooks/use-lottery-data.ts):
 
 ```typescript
 // Fetch recent lottery results
-const { data, loading, error } = useLotteryResults(limit)
+const { results, loading, error } = useLotteryResults(limit)
 
 // Fetch number frequency statistics
-const { data, loading, error } = useNumberStatistics()
+const { statistics, loading, error } = useNumberStatistics()
 
 // User predictions (authenticated)
 const { predictions, loading, error, savePrediction } = useUserPredictions()
 
 // Generate AI prediction
 const { generatePrediction, loading, error } = useGeneratePrediction()
+```
+
+### Bet Analysis Hooks
+See [lib/hooks/use-bet-comparison.ts](lib/hooks/use-bet-comparison.ts):
+
+```typescript
+// Compare bets with historical draws
+const { data, loading, error, compareBets } = useBetComparison()
+await compareBets(bets, { limit: 100 })
+
+// Fetch extended statistics
+const { data, loading, error, fetchStatistics } = useExtendedStatistics()
+
+// Analyze a single bet
+const { data, loading, error, analyzeBet } = useBetAnalysis()
+await analyzeBet([1,2,3,...,15])
+```
+
+### Mathematical Utilities
+See [lib/utils/lottery-math.ts](lib/utils/lottery-math.ts):
+
+```typescript
+import {
+  factorial, combinatorics, betQuantity, probability,
+  match, matches, whoMatches, surprise, surprises,
+  sum, mean, pairs, primes, replicates,
+  betCost, totalCost
+} from '@/lib/utils/lottery-math'
+
+// Combinatorics
+const combinations = combinatorics(15, 25) // C(25, 15)
+const prob = probability(1) // 1 in 3,268,760
+
+// Bet generation
+const bet = surprise(15, 25) // Random unique bet
+const bets = surprises(10, 15, 25) // 10 random bets
+
+// Analysis
+const acertos = match(bet, raffle) // How many hits
+const distribution = matches(bet, allRaffles) // Hit distribution
+const detailedMatches = whoMatches(bet, rafflesRecord) // Which contests
+
+// Patterns
+const total = sum(bet) // Sum of numbers
+const avg = mean(bet) // Average
+const pares = pairs(bet) // Count of even numbers
+const primos = primes(bet) // Count of prime numbers
+
+// Cost calculation
+const cost = betCost(18, 3.0) // Cost of 18-number bet
+const totalPrice = totalCost(bets, 3.0) // Total cost of multiple bets
 ```
 
 ## Common Development Tasks
@@ -311,7 +386,11 @@ See [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md) for detailed deployment steps.
 
 **Main Pages:**
 - [app/page.tsx](app/page.tsx) - Landing page
-- [app/dashboard/page.tsx](app/dashboard/page.tsx) - User dashboard
+- [app/dashboard/page.tsx](app/dashboard/page.tsx) - User dashboard (4 tabs)
+  - Tab 1: Visão Geral (original dashboard)
+  - Tab 2: Análise (detailed bet analysis)
+  - Tab 3: Comparar (compare bets with history)
+  - Tab 4: Estatísticas (extended statistics)
 - [app/admin/page.tsx](app/admin/page.tsx) - Admin dashboard
 
 **Configuration:**

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 import type { NumberStatistic } from "@/lib/types"
+import { surprise, sum, mean, pairs, primes } from "@/lib/utils/lottery-math"
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -56,11 +57,20 @@ export async function POST(request: NextRequest) {
         confidence = 0.65
     }
 
+    const analysis = {
+      sum: sum(prediction),
+      mean: mean(prediction),
+      pairs: pairs(prediction),
+      odds: 15 - pairs(prediction),
+      primes: primes(prediction),
+    }
+
     return NextResponse.json({
       data: {
         numbers: prediction.sort((a, b) => a - b),
         method,
         confidence,
+        analysis,
       },
     })
   } catch (error) {
@@ -227,16 +237,5 @@ function generateBalancedPrediction(stats: NumberStatistic[], alpha: number): nu
 }
 
 function generateRandomPrediction(): number[] {
-  const prediction: number[] = []
-  const used = new Set<number>()
-
-  while (prediction.length < 15) {
-    const num = Math.floor(Math.random() * 25) + 1
-    if (!used.has(num)) {
-      prediction.push(num)
-      used.add(num)
-    }
-  }
-
-  return prediction
+  return surprise(15, 25)
 }
