@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/auth"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { AllGamesManager } from "@/components/admin/all-games-manager"
 
@@ -11,21 +11,13 @@ export const metadata = {
 }
 
 export default async function AdminAllGamesPage() {
-  const supabase = createClient()
+  const session = await auth()
 
-  const { data, error: userError } = await supabase.auth.getUser()
-  if (userError || !data?.user) {
+  if (!session?.user) {
     redirect("/auth/login")
   }
-  const { user } = data
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (profileError || !profile || profile.role !== "admin") {
+  if (session.user.role !== "admin") {
     redirect("/dashboard")
   }
 

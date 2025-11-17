@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { sum, mean, pairs, primes } from "@/lib/utils/lottery-math"
 
@@ -16,21 +16,17 @@ interface ExtendedStatistics {
 }
 
 export async function GET() {
-  const supabase = await createClient()
-
   try {
-    const { data: results, error } = await supabase
-      .from("lottery_results")
-      .select("numbers")
-      .order("contest_number", { ascending: true })
-
-    if (error) throw error
+    const results = await prisma.lotteryResult.findMany({
+      select: { numbers: true },
+      orderBy: { contestNumber: 'asc' }
+    })
 
     if (!results || results.length === 0) {
       return NextResponse.json({ error: "No lottery results found" }, { status: 404 })
     }
 
-    const data = results.map((r: { numbers: unknown }) => r.numbers as number[])
+    const data = results.map(r => JSON.parse(r.numbers) as number[])
 
     // Calculate all statistics
     const statistics: ExtendedStatistics = {

@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import prisma from "@/lib/prisma"
+import { auth } from "@/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import {
   betQuantity,
@@ -12,14 +13,9 @@ import {
 } from "@/lib/utils/lottery-math"
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -75,20 +71,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Get hot/cold status for each number
-    const { data: stats } = await supabase
-      .from("number_statistics")
-      .select("number_value, hot_cold_status, frequency, days_since_last_draw")
-      .in("number_value", sortedBet)
+    const stats = await prisma.numberStatistic.findMany({
+      where: {
+        numberValue: { in: sortedBet }
+      },
+      select: {
+        numberValue: true,
+        hotColdStatus: true,
+        frequency: true,
+        daysSinceLastDraw: true
+      }
+    })
 
     const numberDetails = sortedBet.map((num) => {
-      const stat = stats?.find(
-        (s: { number_value: number }) => s.number_value === num
-      )
+      const stat = stats?.find(s => s.numberValue === num)
       return {
         number: num,
-        status: stat?.hot_cold_status || "neutral",
+        status: stat?.hotColdStatus || "neutral",
         frequency: stat?.frequency || 0,
-        daysSinceLastDraw: stat?.days_since_last_draw || 0,
+        daysSinceLastDraw: stat?.daysSinceLastDraw || 0,
       }
     })
 

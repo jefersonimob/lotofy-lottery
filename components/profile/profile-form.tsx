@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@/lib/supabase/client"
 import { Loader2, Save } from "lucide-react"
 import type { User, UserProfile } from "@/lib/types"
 
@@ -34,26 +33,23 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
     state: profile?.state || "",
   })
   const { toast } = useToast()
-  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          bio: formData.bio,
-          phone: formData.phone,
-          city: formData.city,
-          state: formData.state,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id)
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error('Failed to update profile')
+      }
 
       toast({
         title: "Perfil atualizado",

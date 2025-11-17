@@ -1,5 +1,5 @@
 // lib/services/caixa-api.ts
-import type { SupabaseClient } from "@supabase/supabase-js"
+import prisma from '@/lib/prisma'
 
 export interface CaixaLotofacilResult {
   loteria: string
@@ -129,7 +129,7 @@ export class CaixaApiService {
   /**
    * Atualiza todos os resultados históricos faltando no banco de dados
    */
-  static async updateAllHistoricalResults(supabase: SupabaseClient, maxContest?: number): Promise<{
+  static async updateAllHistoricalResults(maxContest?: number): Promise<{
     success: boolean
     inserted: number
     errors: string[]
@@ -137,23 +137,17 @@ export class CaixaApiService {
   }> {
     const errors: string[] = [];
     let inserted = 0;
-    
+
     try {
       // Obter o maior número de concurso já salvo no banco
-      const { data: latestDb, error: dbError } = await supabase
-        .from('lottery_results')
-        .select('contest_number')
-        .order('contest_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (dbError) {
-        throw new Error(`Erro ao buscar último concurso do banco: ${dbError.message}`);
-      }
+      const latestDb = await prisma.lotteryResult.findFirst({
+        orderBy: { contestNumber: 'desc' },
+        select: { contestNumber: true }
+      });
 
       // Determinar o primeiro concurso a buscar (1 é o primeiro concurso da Lotofácil)
-      const startContest = latestDb ? latestDb.contest_number + 1 : 1;
-      
+      const startContest = latestDb ? latestDb.contestNumber + 1 : 1;
+
       // Se não foi fornecido um limite, buscar até um número razoável
       const endContest = maxContest || 3600; // Valor estimado para cobrir todos os concursos futuros
 
@@ -164,27 +158,33 @@ export class CaixaApiService {
       for (let contest = startContest; contest <= endContest; contest += batchSize) {
         const batchEnd = Math.min(contest + batchSize - 1, endContest);
         console.log(`Processando lotes de ${contest} a ${batchEnd}`);
-        
+
         const results = await this.getHistoricalResults(contest, batchEnd);
-        
+
         if (results.length > 0) {
           // Inserir resultados no banco
-          const { error: insertError } = await supabase
-            .from('lottery_results')
-            .upsert(results.map(result => ({
-              contest_number: result.contest_number,
-              draw_date: result.draw_date,
-              numbers: result.numbers,
-            })), { onConflict: 'contest_number' });
-
-          if (insertError) {
-            errors.push(`Erro ao inserir resultados de ${contest} a ${batchEnd}: ${insertError.message}`);
-          } else {
+          try {
+            for (const result of results) {
+              await prisma.lotteryResult.upsert({
+                where: { contestNumber: result.contest_number },
+                update: {
+                  drawDate: new Date(result.draw_date),
+                  numbers: JSON.stringify(result.numbers),
+                },
+                create: {
+                  contestNumber: result.contest_number,
+                  drawDate: new Date(result.draw_date),
+                  numbers: JSON.stringify(result.numbers),
+                }
+              });
+            }
             inserted += results.length;
             console.log(`Inseridos ${results.length} resultados de ${contest} a ${batchEnd}`);
+          } catch (insertError) {
+            errors.push(`Erro ao inserir resultados de ${contest} a ${batchEnd}: ${insertError instanceof Error ? insertError.message : String(insertError)}`);
           }
         }
-        
+
         // Pequeno delay entre lotes para não sobrecarregar a API
         await new Promise(resolve => setTimeout(resolve, 500));
       }
@@ -241,15 +241,14 @@ export class CaixaApiService {
   /**
    * Verifica se um concurso já existe no banco
    */
-  static async checkContestExists(contestNumber: number, supabase: SupabaseClient): Promise<boolean> {
+  static async checkContestExists(contestNumber: number): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('lottery_results')
-        .select('id')
-        .eq('contest_number', contestNumber)
-        .single()
+      const data = await prisma.lotteryResult.findUnique({
+        where: { contestNumber: contestNumber },
+        select: { id: true }
+      })
 
-      return !error && !!data
+      return !!data
     } catch (error) {
       console.error('Erro ao verificar se concurso existe:', error)
       return false
@@ -259,7 +258,7 @@ export class CaixaApiService {
   /**
    * Sincroniza o último resultado com o banco de dados
    */
-  static async syncLatestResult(supabase: SupabaseClient): Promise<{
+  static async syncLatestResult(): Promise<{
     success: boolean
     data?: ProcessedLotofacilResult
     message: string
@@ -267,7 +266,7 @@ export class CaixaApiService {
     try {
       // Buscar último resultado da API
       const latestResult = await this.getLatestResult()
-      
+
       if (!latestResult) {
         return {
           success: false,
@@ -276,8 +275,8 @@ export class CaixaApiService {
       }
 
       // Verificar se já existe no banco
-      const exists = await this.checkContestExists(latestResult.contest_number, supabase)
-      
+      const exists = await this.checkContestExists(latestResult.contest_number)
+
       if (exists) {
         return {
           success: true,
@@ -287,27 +286,30 @@ export class CaixaApiService {
       }
 
       // Inserir no banco
-      const { error } = await supabase
-        .from('lottery_results')
-        .upsert({
-          contest_number: latestResult.contest_number,
-          draw_date: latestResult.draw_date,
-          numbers: latestResult.numbers,
-        }, { onConflict: 'contest_number' })
-        .select()
-        .single()
+      try {
+        await prisma.lotteryResult.upsert({
+          where: { contestNumber: latestResult.contest_number },
+          update: {
+            drawDate: new Date(latestResult.draw_date),
+            numbers: JSON.stringify(latestResult.numbers),
+          },
+          create: {
+            contestNumber: latestResult.contest_number,
+            drawDate: new Date(latestResult.draw_date),
+            numbers: JSON.stringify(latestResult.numbers),
+          }
+        })
 
-      if (error) {
+        return {
+          success: true,
+          data: latestResult,
+          message: `Concurso ${latestResult.contest_number} sincronizado com sucesso`
+        }
+      } catch (error) {
         return {
           success: false,
           message: `Erro ao sincronizar: ${error instanceof Error ? error.message : String(error)}`
         }
-      }
-
-      return {
-        success: true,
-        data: latestResult,
-        message: `Concurso ${latestResult.contest_number} sincronizado com sucesso`
       }
     } catch (error) {
       return {

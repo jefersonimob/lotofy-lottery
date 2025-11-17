@@ -1,16 +1,13 @@
-import { createClient } from "@/lib/supabase/server"
+import prisma from "@/lib/prisma"
+import { auth } from "@/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import type { NumberStatistic } from "@/lib/types"
 import { surprise, sum, mean, pairs, primes } from "@/lib/utils/lottery-math"
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -19,14 +16,20 @@ export async function POST(request: NextRequest) {
     const alpha = typeof recency_alpha === "number" && Number.isFinite(recency_alpha) ? recency_alpha : 1.6
 
     // Get number statistics for intelligent prediction
-    const { data: stats, error: statsError } = await supabase
-      .from("number_statistics")
-      .select("*")
-      .order("number_value", { ascending: true })
+    const stats = await prisma.numberStatistic.findMany({
+      orderBy: { numberValue: 'asc' }
+    })
 
-    if (statsError) throw statsError
-
-    const statsTyped: NumberStatistic[] = (stats ?? []) as NumberStatistic[]
+    // Convert to expected format
+    const statsTyped: NumberStatistic[] = stats.map(s => ({
+      id: s.id,
+      number_value: s.numberValue,
+      frequency: s.frequency,
+      last_appearance_contest: s.lastAppearanceContest,
+      days_since_last_draw: s.daysSinceLastDraw,
+      hot_cold_status: s.hotColdStatus,
+      updated_at: s.updatedAt.toISOString(),
+    }))
 
     let prediction: number[] = []
     let confidence = 0.75

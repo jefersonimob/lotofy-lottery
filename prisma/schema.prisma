@@ -1,0 +1,134 @@
+// Prisma Schema for Lotofy - MySQL 8
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User profiles
+model Profile {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // bcrypt hashed
+  fullName  String?  @map("full_name")
+  bio       String?  @db.Text
+  phone     String?
+  city      String?
+  state     String?
+  role      String   @default("user") // 'user' | 'admin'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  predictions        UserPrediction[]
+  prizeVerifications PrizeVerification[]
+
+  @@map("profiles")
+}
+
+// Historical lottery results
+model LotteryResult {
+  id            String   @id @default(uuid())
+  contestNumber Int      @unique @map("contest_number")
+  drawDate      DateTime @map("draw_date") @db.Date
+  numbers       String   @db.Text // JSON array: "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]"
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([contestNumber])
+  @@index([drawDate])
+  @@map("lottery_results")
+}
+
+// User predictions
+model UserPrediction {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  contestNumber    Int?      @map("contest_number")
+  predictedNumbers String    @map("predicted_numbers") @db.Text // JSON array
+  predictionMethod String    @map("prediction_method") // 'statistical', 'random', 'manual'
+  confidenceScore  Float?    @map("confidence_score") // 0.00 to 1.00
+  prizeLevel       Int?      @map("prize_level")
+  isWinner         Boolean   @default(false) @map("is_winner")
+  checkedAt        DateTime? @map("checked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user               Profile             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prizeVerifications PrizeVerification[]
+
+  @@index([userId])
+  @@index([contestNumber])
+  @@index([isWinner])
+  @@map("user_predictions")
+}
+
+// Number frequency statistics
+model NumberStatistic {
+  id                   String   @id @default(uuid())
+  numberValue          Int      @unique @map("number_value") // 1-25
+  frequency            Int      @default(0)
+  lastAppearanceContest Int?    @map("last_appearance_contest")
+  daysSinceLastDraw    Int      @default(0) @map("days_since_last_draw")
+  hotColdStatus        String?  @map("hot_cold_status") // 'hot', 'cold', 'neutral'
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([numberValue])
+  @@index([frequency])
+  @@map("number_statistics")
+}
+
+// Prize verification history
+model PrizeVerification {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  predictionId     String   @map("prediction_id")
+  contestNumber    Int      @map("contest_number")
+  predictedNumbers String   @map("predicted_numbers") @db.Text // JSON array
+  drawnNumbers     String   @map("drawn_numbers") @db.Text // JSON array
+  matches          String   @db.Text // JSON array of matched numbers
+  misses           String   @db.Text // JSON array of missed numbers
+  matchCount       Int      @map("match_count")
+  prizeLevel       Int?     @map("prize_level")
+  prizeDescription String?  @map("prize_description") @db.Text
+  isWinner         Boolean  @default(false) @map("is_winner")
+  verifiedAt       DateTime @default(now()) @map("verified_at")
+
+  // Relations
+  user       Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prediction UserPrediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([contestNumber])
+  @@index([isWinner])
+  @@map("prize_verifications")
+}
+
+// All possible Lotofácil games (3,268,760 combinations)
+model AllPossibleGame {
+  id                 BigInt   @id @default(autoincrement())
+  numbers            String   @db.Text // JSON array: [1,2,3,...]
+  numbersStr         String   @unique @map("numbers_str") // "01-02-03-04-05-06-07-08-09-10-11-12-13-14-15"
+  sumNumbers         Int      @map("sum_numbers") // 120-300
+  oddCount           Int      @map("odd_count") // 0-15
+  evenCount          Int      @map("even_count") // 0-15
+  lowCount           Int      @map("low_count") // Numbers 1-12
+  highCount          Int      @map("high_count") // Numbers 13-25
+  range0105          Int      @map("range_01_05")
+  range0610          Int      @map("range_06_10")
+  range1115          Int      @map("range_11_15")
+  range1620          Int      @map("range_16_20")
+  range2125          Int      @map("range_21_25")
+  hasSequence        Boolean  @map("has_sequence")
+  maxSequenceLength  Int      @map("max_sequence_length")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([sumNumbers])
+  @@index([oddCount, evenCount])
+  @@index([lowCount, highCount])
+  @@index([hasSequence])
+  @@index([numbersStr])
+  @@map("all_possible_games")
+}

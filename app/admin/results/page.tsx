@@ -1,34 +1,25 @@
 import { redirect } from "next/navigation"
 export const dynamic = "force-dynamic"
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/auth"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { ResultsManager } from "@/components/admin/results-manager"
 
 export default async function AdminResultsPage() {
-  const supabase = await createClient()
+  const session = await auth()
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
+  if (!session?.user) {
     redirect("/auth/login")
   }
 
   // Check if user is admin
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-  if (!profile || profile.role !== "admin") {
+  if (session.user.role !== "admin") {
     redirect("/dashboard")
   }
 
-  // Get recent results
-  const { data: recentResults } = await supabase
-    .from("lottery_results")
-    .select("*")
-    .order("contest_number", { ascending: false })
-    .limit(20)
+  // Get recent results from API
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const resultsRes = await fetch(`${baseUrl}/api/lottery-results?limit=20`, { cache: 'no-store' })
+  const recentResults = resultsRes.ok ? await resultsRes.json() : []
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,7 +31,7 @@ export default async function AdminResultsPage() {
             <p className="text-muted-foreground">Importe, adicione e gerencie resultados da Lotofácil</p>
           </div>
 
-          <ResultsManager initialResults={recentResults || []} />
+          <ResultsManager initialResults={recentResults} />
         </div>
       </main>
     </div>

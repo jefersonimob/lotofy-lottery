@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import prisma from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +21,6 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: Request) {
   try {
-    const supabase = await createServerClient()
     const { searchParams } = new URL(request.url)
 
     // Parsear parâmetros
@@ -35,69 +34,81 @@ export async function GET(request: Request) {
     const limit = Math.min(Number(searchParams.get('limit')) || 100, 1000)
     const offset = Number(searchParams.get('offset')) || 0
 
-    // Query base
-    let query = supabase
-      .from('all_possible_games')
-      .select('id, numbers, numbers_str, sum_numbers, odd_count, even_count, has_sequence', {
-        count: 'exact'
-      })
+    // Build where clause
+    const where: any = {}
 
-    // Aplicar filtros
     if (oddCount && oddCount.length > 0) {
-      query = query.in('odd_count', oddCount)
+      where.oddCount = { in: oddCount }
     }
 
     if (evenCount && evenCount.length > 0) {
-      query = query.in('even_count', evenCount)
+      where.evenCount = { in: evenCount }
     }
 
     if (sumMin !== null) {
-      query = query.gte('sum_numbers', sumMin)
+      where.sumNumbers = { ...where.sumNumbers, gte: sumMin }
     }
 
     if (sumMax !== null) {
-      query = query.lte('sum_numbers', sumMax)
+      where.sumNumbers = { ...where.sumNumbers, lte: sumMax }
     }
 
     if (hasSequence !== null) {
-      query = query.eq('has_sequence', hasSequence === 'true')
+      where.hasSequence = hasSequence === 'true'
     }
 
-    // Filtros de números (requer post-processing)
-    // TODO: Implementar usando contains com array operators do PostgreSQL
+    // Get total count and data
+    const [count, data] = await Promise.all([
+      prisma.allPossibleGame.count({ where }),
+      prisma.allPossibleGame.findMany({
+        where,
+        select: {
+          id: true,
+          numbers: true,
+          numbersStr: true,
+          sumNumbers: true,
+          oddCount: true,
+          evenCount: true,
+          hasSequence: true,
+        },
+        skip: offset,
+        take: limit,
+      })
+    ])
 
-    // Paginação
-    query = query.range(offset, offset + limit - 1)
-
-    const { data, error, count } = await query
-
-    if (error) {
-      console.error('Erro ao buscar jogos:', error)
-      return NextResponse.json(
-        { error: 'Erro ao buscar jogos possíveis' },
-        { status: 500 }
-      )
-    }
-
-    // Post-processing para filtros de números
-    let filteredData = data || []
+    // Post-processing para filtros de números (MySQL doesn't support array operations)
+    let filteredData = data.map(game => ({
+      ...game,
+      numbers: JSON.parse(game.numbers)
+    }))
 
     if (mustInclude && mustInclude.length > 0) {
-      filteredData = filteredData.filter((game: { numbers: number[] }) =>
+      filteredData = filteredData.filter((game) =>
         mustInclude.every(num => game.numbers.includes(num))
       )
     }
 
     if (mustExclude && mustExclude.length > 0) {
-      filteredData = filteredData.filter((game: { numbers: number[] }) =>
+      filteredData = filteredData.filter((game) =>
         !mustExclude.some(num => game.numbers.includes(num))
       )
     }
 
+    // Convert to expected format
+    const formattedData = filteredData.map(game => ({
+      id: game.id.toString(),
+      numbers: game.numbers,
+      numbers_str: game.numbersStr,
+      sum_numbers: game.sumNumbers,
+      odd_count: game.oddCount,
+      even_count: game.evenCount,
+      has_sequence: game.hasSequence,
+    }))
+
     return NextResponse.json({
-      games: filteredData,
+      games: formattedData,
       total: count,
-      filtered: filteredData.length,
+      filtered: formattedData.length,
       offset,
       limit
     })

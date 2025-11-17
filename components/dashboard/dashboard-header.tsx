@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { LogOut, Settings, User as UserIcon, Menu, Target } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter, usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -26,14 +26,11 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
-  const router = useRouter()
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/")
+    await signOut({ callbackUrl: "/auth/login" })
   }
 
   const navigationItems = [

@@ -1,18 +1,24 @@
-import { createClient } from "@/lib/supabase/server"
+import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const supabase = await createClient()
-
   try {
-    const { data, error } = await supabase
-      .from("number_statistics")
-      .select("*")
-      .order("number_value", { ascending: true })
+    const data = await prisma.numberStatistic.findMany({
+      orderBy: { numberValue: 'asc' }
+    })
 
-    if (error) throw error
+    // Convert to expected format (snake_case)
+    const formattedData = data.map(stat => ({
+      id: stat.id,
+      number_value: stat.numberValue,
+      frequency: stat.frequency,
+      last_appearance_contest: stat.lastAppearanceContest,
+      days_since_last_draw: stat.daysSinceLastDraw,
+      hot_cold_status: stat.hotColdStatus,
+      updated_at: stat.updatedAt.toISOString(),
+    }))
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: formattedData })
   } catch (error) {
     console.error("Error fetching statistics:", error)
     return NextResponse.json({ error: "Failed to fetch statistics" }, { status: 500 })

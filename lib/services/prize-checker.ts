@@ -1,5 +1,5 @@
 // lib/services/prize-checker.ts
-import type { SupabaseClient } from '@supabase/supabase-js'
+import prisma from '@/lib/prisma'
 
 export interface PrizeCheckResult {
   prediction_id: string
@@ -53,7 +53,7 @@ export class PrizeCheckerService {
   } {
     const matches = predictedNumbers.filter(num => drawnNumbers.includes(num))
     const misses = predictedNumbers.filter(num => !drawnNumbers.includes(num))
-    
+
     return {
       matches,
       misses,
@@ -70,7 +70,7 @@ export class PrizeCheckerService {
     isWinner: boolean
   } {
     const prizeLevel = LOTOFACIL_PRIZE_LEVELS.find(level => level.matches_required === matchCount)
-    
+
     if (prizeLevel) {
       return {
         level: prizeLevel.level,
@@ -90,44 +90,40 @@ export class PrizeCheckerService {
    * Verifica prêmios para todas as previsões de um usuário em um concurso específico
    */
   static async checkUserPredictionsForContest(
-    userId: string, 
-    contestNumber: number, 
-    supabase: SupabaseClient
+    userId: string,
+    contestNumber: number
   ): Promise<PrizeCheckResult[]> {
     try {
       // Buscar previsões do usuário para o concurso
-      const { data: predictions, error: predictionsError } = await supabase
-        .from('user_predictions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('contest_number', contestNumber)
-
-      if (predictionsError) {
-        throw predictionsError
-      }
+      const predictions = await prisma.userPrediction.findMany({
+        where: {
+          userId: userId,
+          contestNumber: contestNumber,
+        }
+      })
 
       if (!predictions || predictions.length === 0) {
         return []
       }
 
       // Buscar resultado do concurso
-      const { data: result, error: resultError } = await supabase
-        .from('lottery_results')
-        .select('numbers')
-        .eq('contest_number', contestNumber)
-        .single()
+      const result = await prisma.lotteryResult.findUnique({
+        where: { contestNumber: contestNumber },
+        select: { numbers: true }
+      })
 
-      if (resultError || !result) {
+      if (!result) {
         throw new Error(`Resultado do concurso ${contestNumber} não encontrado`)
       }
 
-      const drawnNumbers = (result as LotteryResult).numbers
+      const drawnNumbers = JSON.parse(result.numbers)
       const prizeResults: PrizeCheckResult[] = []
 
       // Verificar cada previsão
-      for (const prediction of predictions as UserPrediction[]) {
+      for (const prediction of predictions) {
+        const predictedNumbers = JSON.parse(prediction.predictedNumbers)
         const { matches, misses, matchCount } = this.checkMatches(
-          prediction.predicted_numbers,
+          predictedNumbers,
           drawnNumbers
         )
 
@@ -136,14 +132,14 @@ export class PrizeCheckerService {
         const prizeResult: PrizeCheckResult = {
           prediction_id: prediction.id,
           contest_number: contestNumber,
-          predicted_numbers: prediction.predicted_numbers,
+          predicted_numbers: predictedNumbers,
           drawn_numbers: drawnNumbers,
           matches,
           misses,
           prize_level: level,
           prize_description: description,
           is_winner: isWinner,
-          created_at: prediction.created_at
+          created_at: prediction.createdAt.toISOString()
         }
 
         prizeResults.push(prizeResult)
@@ -160,8 +156,7 @@ export class PrizeCheckerService {
    * Verifica prêmios para todas as previsões de um usuário em todos os concursos
    */
   static async checkAllUserPredictions(
-    userId: string, 
-    supabase: SupabaseClient
+    userId: string
   ): Promise<{
     totalPredictions: number
     totalWinners: number
@@ -170,16 +165,13 @@ export class PrizeCheckerService {
   }> {
     try {
       // Buscar todas as previsões do usuário com concurso
-      const { data: predictions, error: predictionsError } = await supabase
-        .from('user_predictions')
-        .select('*')
-        .eq('user_id', userId)
-        .not('contest_number', 'is', null)
-        .order('contest_number', { ascending: false })
-
-      if (predictionsError) {
-        throw predictionsError
-      }
+      const predictions = await prisma.userPrediction.findMany({
+        where: {
+          userId: userId,
+          contestNumber: { not: null }
+        },
+        orderBy: { contestNumber: 'desc' }
+      })
 
       if (!predictions || predictions.length === 0) {
         return {
@@ -191,13 +183,14 @@ export class PrizeCheckerService {
       }
 
       // Agrupar por concurso
-      const predictionsByContest = (predictions as UserPrediction[]).reduce((acc, prediction) => {
-        if (!acc[prediction.contest_number]) {
-          acc[prediction.contest_number] = []
+      const predictionsByContest = predictions.reduce((acc, prediction) => {
+        const contestNum = prediction.contestNumber!
+        if (!acc[contestNum]) {
+          acc[contestNum] = []
         }
-        acc[prediction.contest_number].push(prediction)
+        acc[contestNum].push(prediction)
         return acc
-      }, {} as Record<number, UserPrediction[]>)
+      }, {} as Record<number, typeof predictions>)
 
       let totalWinners = 0
       const prizeBreakdown: Record<string, number> = {}
@@ -207,9 +200,8 @@ export class PrizeCheckerService {
       for (const contestNumber of Object.keys(predictionsByContest)) {
         try {
           const contestResults = await this.checkUserPredictionsForContest(
-            userId, 
-            parseInt(contestNumber), 
-            supabase
+            userId,
+            parseInt(contestNumber)
           )
 
           allResults.push(...contestResults)
@@ -269,10 +261,10 @@ export class PrizeCheckerService {
     const totalPredictions = prizeResults.length
     const totalWinners = prizeResults.filter(r => r.is_winner).length
     const winRate = (totalWinners / totalPredictions) * 100
-    
+
     const averageMatches = prizeResults.reduce((sum, r) => sum + r.matches.length, 0) / totalPredictions
     const bestResult = Math.max(...prizeResults.map(r => r.matches.length))
-    
+
     const prizeDistribution = prizeResults.reduce((acc, result) => {
       if (result.is_winner && result.prize_description) {
         acc[result.prize_description] = (acc[result.prize_description] || 0) + 1

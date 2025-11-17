@@ -1,31 +1,34 @@
 import { redirect } from "next/navigation"
 export const dynamic = "force-dynamic"
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/auth"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { ProfileForm } from "@/components/profile/profile-form"
 import { ProfileStats } from "@/components/profile/profile-stats"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function ProfilePage() {
-  const supabase = await createClient()
+  const session = await auth()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
+  if (!session?.user) {
     redirect("/auth/login")
   }
 
-  // Get user profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
+  // Get user profile from API
+  const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/profile`, {
+    cache: 'no-store'
+  })
+  const profile = profileResponse.ok ? await profileResponse.json() : null
 
-  // Get user statistics
-  const { data: userStats } = await supabase
-    .from("user_predictions")
-    .select("id, created_at, prediction_method")
-    .eq("user_id", data.user.id)
+  // Get user statistics from API
+  const predictionsResponse = await fetch(
+    `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/predictions`,
+    { cache: 'no-store' }
+  )
+  const userStats = predictionsResponse.ok ? await predictionsResponse.json() : []
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader user={data.user} profile={profile} />
+      <DashboardHeader user={session.user} profile={profile} />
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
@@ -43,7 +46,7 @@ export default async function ProfilePage() {
                   <CardDescription>Atualize suas informações de perfil</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ProfileForm user={data.user} profile={profile} />
+                  <ProfileForm user={session.user} profile={profile} />
                 </CardContent>
               </Card>
             </div>

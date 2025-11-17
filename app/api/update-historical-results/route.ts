@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { CaixaApiService } from "@/lib/services/caixa-api"
 
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createAdminClient()
-
-    // Verificar se o usuário é admin
     const { searchParams } = new URL(request.url)
     const maxContest = searchParams.get('maxContest')
-    
+
     // Atualizar todos os resultados históricos
     const updateResult = await CaixaApiService.updateAllHistoricalResults(
-      supabase, 
       maxContest ? parseInt(maxContest) : undefined
     )
 

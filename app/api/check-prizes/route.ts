@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import prisma from "@/lib/prisma"
+import { auth } from "@/auth"
 import { PrizeCheckerService } from "@/lib/services/prize-checker"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verificar se o usuário está autenticado
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -34,15 +28,13 @@ export async function GET(request: NextRequest) {
       }
 
       result = await PrizeCheckerService.checkUserPredictionsForContest(
-        user.id,
-        contestNum,
-        supabase
+        session.user.id,
+        contestNum
       )
     } else {
       // Verificar todas as previsões do usuário
       result = await PrizeCheckerService.checkAllUserPredictions(
-        user.id,
-        supabase
+        session.user.id
       )
     }
 
@@ -53,10 +45,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Erro ao verificar prêmios:", error)
     return NextResponse.json(
-      { 
-        error: "Erro interno do servidor", 
+      {
+        error: "Erro interno do servidor",
         message: error instanceof Error ? error.message : "Erro desconhecido"
-      }, 
+      },
       { status: 500 }
     )
   }
@@ -64,15 +56,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verificar se o usuário está autenticado
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -89,24 +74,20 @@ export async function POST(request: NextRequest) {
     // Buscar previsões específicas se IDs foram fornecidos
     let predictions
     if (predictionIds && predictionIds.length > 0) {
-      const { data, error } = await supabase
-        .from('user_predictions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('contest_number', contestNumber)
-        .in('id', predictionIds)
-
-      if (error) throw error
-      predictions = data || []
+      predictions = await prisma.userPrediction.findMany({
+        where: {
+          userId: session.user.id,
+          contestNumber: contestNumber,
+          id: { in: predictionIds }
+        }
+      })
     } else {
-      const { data, error } = await supabase
-        .from('user_predictions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('contest_number', contestNumber)
-
-      if (error) throw error
-      predictions = data || []
+      predictions = await prisma.userPrediction.findMany({
+        where: {
+          userId: session.user.id,
+          contestNumber: contestNumber
+        }
+      })
     }
 
     if (predictions.length === 0) {
@@ -118,26 +99,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar resultado do concurso
-    const { data: result, error: resultError } = await supabase
-      .from('lottery_results')
-      .select('numbers')
-      .eq('contest_number', contestNumber)
-      .single()
+    const result = await prisma.lotteryResult.findUnique({
+      where: { contestNumber: contestNumber },
+      select: { numbers: true }
+    })
 
-    if (resultError || !result) {
+    if (!result) {
       return NextResponse.json(
         { error: `Resultado do concurso ${contestNumber} não encontrado` },
         { status: 404 }
       )
     }
 
-    const drawnNumbers = result.numbers
+    const drawnNumbers = JSON.parse(result.numbers)
     const prizeResults = []
 
     // Verificar cada previsão
     for (const prediction of predictions) {
+      const predictedNumbers = JSON.parse(prediction.predictedNumbers)
       const { matches, misses, matchCount } = PrizeCheckerService.checkMatches(
-        prediction.predicted_numbers,
+        predictedNumbers,
         drawnNumbers
       )
 
@@ -146,7 +127,7 @@ export async function POST(request: NextRequest) {
       prizeResults.push({
         prediction_id: prediction.id,
         contest_number: contestNumber,
-        predicted_numbers: prediction.predicted_numbers,
+        predicted_numbers: predictedNumbers,
         drawn_numbers: drawnNumbers,
         matches,
         misses,
@@ -154,9 +135,9 @@ export async function POST(request: NextRequest) {
         prize_level: level,
         prize_description: description,
         is_winner: isWinner,
-        created_at: prediction.created_at,
-        prediction_method: prediction.prediction_method,
-        confidence_score: prediction.confidence_score
+        created_at: prediction.createdAt.toISOString(),
+        prediction_method: prediction.predictionMethod,
+        confidence_score: prediction.confidenceScore
       })
     }
 
@@ -178,10 +159,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Erro ao verificar prêmios:", error)
     return NextResponse.json(
-      { 
-        error: "Erro interno do servidor", 
+      {
+        error: "Erro interno do servidor",
         message: error instanceof Error ? error.message : "Erro desconhecido"
-      }, 
+      },
       { status: 500 }
     )
   }

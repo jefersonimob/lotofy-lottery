@@ -1,6 +1,6 @@
 {
   "name": "my-v0-project",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "build": "next build",
@@ -9,11 +9,12 @@
     "start": "next start",
     "export": "next build && next export",
     "type-check": "tsc --noEmit",
-    "build:analyze": "ANALYZE=true next build",
-    "import-all-games": "tsx scripts/import-all-games.ts"
+    "build:analyze": "ANALYZE=true next build"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^3.10.0",
+    "@prisma/client": "^6.19.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -41,11 +42,10 @@
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
-    "@supabase/ssr": "0.8.0-rc.2",
-    "@supabase/supabase-js": "^2.44.0",
     "@vercel/analytics": "latest",
     "autoprefixer": "^10.4.20",
     "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -54,8 +54,11 @@
     "geist": "latest",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
+    "mysql2": "^3.15.3",
     "next": "14.2.16",
+    "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
+    "prisma": "^6.19.0",
     "react": "^18",
     "react-day-picker": "9.8.0",
     "react-dom": "^18",
@@ -71,6 +74,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22",
     "@types/react": "^18.3.26",
     "@types/react-dom": "^18.3.7",

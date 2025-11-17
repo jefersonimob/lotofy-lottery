@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/auth"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { AdvancedResultsViewer } from "@/components/dashboard/advanced-results-viewer"
 import { MobileLayout } from "@/components/mobile/mobile-layout"
@@ -7,20 +7,22 @@ import { MobileLayout } from "@/components/mobile/mobile-layout"
 export const dynamic = "force-dynamic"
 
 export default async function ResultsPage() {
-  const supabase = await createClient()
+  const session = await auth()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
+  if (!session?.user) {
     redirect("/auth/login")
   }
 
-  // Get user profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
+  // Get user profile from API
+  const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/profile`, {
+    cache: 'no-store'
+  })
+  const profile = profileResponse.ok ? await profileResponse.json() : null
 
   return (
     <MobileLayout>
       <div className="min-h-screen bg-background">
-        <DashboardHeader user={data.user} profile={profile} />
+        <DashboardHeader user={session.user} profile={profile} />
 
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           <div className="space-y-6 sm:space-y-8">

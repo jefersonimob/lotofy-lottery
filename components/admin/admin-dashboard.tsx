@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Users, TrendingUp, Database, Calendar, Plus, Upload } from "lucide-react"
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 
 interface AdminStats {
   total_users: number
@@ -18,14 +17,14 @@ interface AdminStats {
 export function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        const { data, error } = await supabase.from("admin_stats").select("*").single()
+        const response = await fetch('/api/admin/stats')
+        if (!response.ok) throw new Error('Failed to fetch stats')
 
-        if (error) throw error
+        const data = await response.json()
         setStats(data)
       } catch (error) {
         console.error("Error fetching admin stats:", error)
@@ -35,7 +34,7 @@ export function AdminDashboard() {
     }
 
     fetchStats()
-  }, [supabase])
+  }, [])
 
   if (loading) {
     return <div className="text-center py-8">Carregando estatísticas...</div>

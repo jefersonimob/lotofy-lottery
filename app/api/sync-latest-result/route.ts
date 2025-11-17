@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { CaixaApiService } from "@/lib/services/caixa-api"
 
 export const dynamic = "force-dynamic"
 
-// Agora sem exigir autenticação e usando service role no servidor
 export async function POST() {
   try {
-    const supabase = createAdminClient()
-
     // Sincronizar o último resultado
-    const syncResult = await CaixaApiService.syncLatestResult(supabase)
+    const syncResult = await CaixaApiService.syncLatestResult()
 
     if (!syncResult.success) {
       return NextResponse.json(
@@ -34,15 +30,13 @@ export async function POST() {
         error: "Erro interno do servidor",
         message: error instanceof Error ? error.message : "Erro desconhecido",
       },
-        { status: 500 }
+      { status: 500 }
     )
   }
 }
 
 export async function GET() {
   try {
-    const supabase = createAdminClient()
-
     // Buscar o último resultado da API sem salvar no banco
     const latestResult = await CaixaApiService.getLatestResult()
 
@@ -54,7 +48,7 @@ export async function GET() {
     }
 
     // Verificar se já existe no banco
-    const exists = await CaixaApiService.checkContestExists(latestResult.contest_number, supabase)
+    const exists = await CaixaApiService.checkContestExists(latestResult.contest_number)
 
     return NextResponse.json({
       success: true,
