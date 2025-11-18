@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import * as XLSX from "xlsx"
 import fs from "fs"
 import path from "path"
 import type { LotteryResult } from "@/lib/types"
+import { createLotteryResult } from "@/lib/database/server"
+import { auth } from "@/auth"
 
 export const runtime = "nodejs"
 
@@ -119,21 +120,15 @@ function parseExcelResults(filePath: string) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-
+    const session = await auth()
+    
     // Check if user is authenticated and is admin
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-    if (!profile || profile.role !== "admin") {
+    const userRole = await getUserRole(session.user.id)
+    if (userRole !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -157,34 +152,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid results data" }, { status: 400 })
     }
 
-    const imported: LotteryResult[] = []
+    const imported: unknown[] = []
     const errors: string[] = []
 
     for (const result of resultsToImport as { contest_number: number; draw_date: string; numbers: number[] }[]) {
       try {
-        const { data: existing } = await supabase
-          .from("lottery_results")
-          .select("id")
-          .eq("contest_number", result.contest_number)
-          .single()
+        const existing = await getLotteryResultByContest(result.contest_number)
 
         if (existing) {
           errors.push(`Concurso ${result.contest_number} já existe`)
           continue
         }
 
-        const { data, error } = await supabase
-          .from("lottery_results")
-          .insert({
-            contest_number: result.contest_number,
-            draw_date: result.draw_date,
-            numbers: result.numbers,
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-        imported.push(data as LotteryResult)
+        const data = await createLotteryResult({
+          contestNumber: result.contest_number,
+          drawDate: new Date(result.draw_date),
+          numbers: result.numbers
+        })
+        
+        imported.push(data)
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         console.error(`Error importing contest ${result.contest_number}:`, message)
@@ -200,5 +186,27 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Import API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+async function getUserRole(userId: string) {
+  try {
+    // Import here to avoid circular dependencies
+    const { getUserRole } = await import("@/lib/database/server")
+    return await getUserRole(userId)
+  } catch (error) {
+    console.error('Error getting user role:', error)
+    return 'user'
+  }
+}
+
+async function getLotteryResultByContest(contestNumber: number) {
+  try {
+    // Import here to avoid circular dependencies
+    const { getLotteryResultByContest } = await import("@/lib/database/server")
+    return await getLotteryResultByContest(contestNumber)
+  } catch (error) {
+    console.error('Error getting lottery result:', error)
+    return null
   }
 }

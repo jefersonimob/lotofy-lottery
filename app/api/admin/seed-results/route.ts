@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import fs from "fs"
 import path from "path"
+import { upsertLotteryResultsInBatches } from "@/lib/database/admin"
+import { auth } from "@/auth"
 
 export const runtime = "nodejs"
 
@@ -92,41 +92,28 @@ function parseCsv(filePath: string): { results: SeedResultRow[]; errors: string[
 }
 
 async function upsertInBatches(rows: SeedResultRow[], batchSize = 500): Promise<{ inserted: number; errors: string[] }> {
-  const admin = createAdminClient()
-  const errors: string[] = []
-  let inserted = 0
-
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batch = rows.slice(i, i + batchSize)
-    const { error, count } = await admin
-      .from("lottery_results")
-      .upsert(batch, { onConflict: "contest_number", count: "exact" })
-
-    if (error) {
-      errors.push(`Batch ${i / batchSize + 1}: ${error.message || String(error)}`)
-    } else {
-      inserted += count ?? 0
-    }
-  }
-
-  return { inserted, errors }
+  // Using our new admin database functions instead of Supabase
+  return await upsertLotteryResultsInBatches(rows.map(r => ({
+    contest_number: r.contest_number,
+    draw_date: r.draw_date,
+    numbers: r.numbers
+  })), batchSize);
 }
 
 export async function POST() {
   try {
-    const supabase = await createClient()
-
-    // Check admin
-    const { data: auth } = await supabase.auth.getUser()
-    const user = auth?.user
-    if (!user) {
+    const session = await auth()
+    
+    // Check if user is authenticated and is admin
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    if (!profile || profile.role !== "admin") {
+
+    const userRole = await getUserRole(session.user.id)
+    if (userRole !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-
+    
     // Find and parse CSV
     const filePath = findCsvFile()
     const { results, errors: parseErrors } = parseCsv(filePath)
@@ -151,5 +138,16 @@ export async function POST() {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+async function getUserRole(userId: string) {
+  try {
+    // Import here to avoid circular dependencies
+    const { getUserRole } = await import("@/lib/database/server")
+    return await getUserRole(userId)
+  } catch (error) {
+    console.error('Error getting user role:', error)
+    return 'user'
   }
 }

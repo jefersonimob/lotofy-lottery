@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { validateGame } from '@/lib/database/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,38 +60,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Ordenar números
-    const sortedNumbers = [...numbers].sort((a, b) => a - b)
+    // Validar jogo usando nossa nova função
+    const validationResult = await validateGame(numbers)
 
-    // Buscar no banco
-    const supabase = await createServerClient()
-
-    const { data, error } = await supabase
-      .from('all_possible_games')
-      .select('id, numbers, numbers_str')
-      .contains('numbers', sortedNumbers)
-      .limit(1)
-      .single()
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-      console.error('Erro ao validar jogo:', error)
-      return NextResponse.json(
-        { error: 'Erro ao validar jogo' },
-        { status: 500 }
-      )
-    }
-
-    const isValid = !!data
-
-    return NextResponse.json({
-      valid: isValid,
-      numbers: sortedNumbers,
-      numbers_str: sortedNumbers.map(n => String(n).padStart(2, '0')).join('-'),
-      game_id: data?.id || null,
-      message: isValid
-        ? 'Jogo válido! Esta combinação existe nas possibilidades da Lotofácil.'
-        : 'Jogo inválido! Esta combinação não existe nas possibilidades da Lotofácil.'
-    })
+    return NextResponse.json(validationResult)
 
   } catch (error) {
     console.error('Erro na API all-games/validate:', error)

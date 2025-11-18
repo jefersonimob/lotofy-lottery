@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { findSimilarGames } from '@/lib/database/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,22 +34,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = await createServerClient()
-
-    // Usar a função PostgreSQL find_similar_games
-    const { data, error } = await supabase
-      .rpc('find_similar_games', {
-        input_numbers: numbers,
-        min_matches: minMatches
-      })
-
-    if (error) {
-      console.error('Erro ao buscar jogos similares:', error)
-      return NextResponse.json(
-        { error: 'Erro ao buscar jogos similares' },
-        { status: 500 }
-      )
-    }
+    // Usar nossa nova função para encontrar jogos similares
+    const data = await findSimilarGames(numbers, minMatches)
 
     return NextResponse.json({
       input_numbers: numbers,
