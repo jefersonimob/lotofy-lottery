@@ -54,6 +54,26 @@ O script vai:
 
 ---
 
+## ▶️ Iniciar o Sistema com Atalho na Área de Trabalho
+
+Após a instalação, você pode criar um atalho na área de trabalho para iniciar o sistema facilmente:
+
+### Opção 1: Usar o script automático
+1. Execute `criar-atalho-desktop.ps1` como administrador
+2. Um atalho será criado na sua área de trabalho
+3. Clique no atalho para iniciar o sistema automaticamente
+
+### Opção 2: Usar o script manual
+1. Clique duas vezes em `lotofy-start.bat`
+2. O sistema iniciará e o navegador abrirá automaticamente
+
+Ambos os scripts:
+- ✅ Iniciam o servidor do sistema
+- ✅ Abrirão o navegador no endereço correto
+- ✅ Mostrarão as credenciais de acesso
+
+---
+
 ## 🔧 Instalação Manual (se o automático falhar)
 
 ### Passo 1: Instalar dependências
@@ -253,3 +273,5 @@ Agora você pode acessar o Lotofy em:
 Faça login com:
 - Email: `admin@lotofy.com`
 - Senha: `admin123`
+
+```
