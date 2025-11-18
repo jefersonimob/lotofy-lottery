@@ -132,6 +132,19 @@ echo Criando usuário admin...
 call npx tsx scripts\create-admin.ts
 echo.
 
+echo.
+echo Criando atalho na área de trabalho...
+powershell -ExecutionPolicy Bypass -Command ^
+"$WshShell = New-Object -comObject WScript.Shell; ^
+$shortcut = $WshShell.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\LOTOFY - Iniciar Sistema.lnk'); ^
+$shortcut.TargetPath = '%cd%\lotofy-start.bat'; ^
+$shortcut.WorkingDirectory = '%cd%'; ^
+$shortcut.IconLocation = 'shell32.dll,135'; ^
+$shortcut.Description = 'Iniciar sistema LOTOFY'; ^
+$shortcut.Save(); ^
+Write-Host '✅ Atalho criado na área de trabalho!' -ForegroundColor Green"
+
+echo.
 echo ════════════════════════════════════════════════════════
 echo    ✅ INSTALAÇÃO CONCLUÍDA COM SUCESSO!
 echo ════════════════════════════════════════════════════════
@@ -141,7 +154,8 @@ echo    Email: admin@lotofy.com
 echo    Senha: admin123
 echo.
 echo 🚀 Para iniciar o servidor:
-echo    npm run dev
+echo    Execute o atalho "LOTOFY - Iniciar Sistema" da sua área de trabalho
+echo    OU execute: npm run dev
 echo.
 echo 🌐 Acesse: http://localhost:3000
 echo.
